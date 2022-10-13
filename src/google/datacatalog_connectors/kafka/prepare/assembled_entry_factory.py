@@ -39,9 +39,9 @@ class AssembledEntryFactory:
         for topic in topics_metadata.items():
             assembled_topic = self.__make_entries_for_topic(topic)
 
-            logging.info('\n--> Topic: %s', topic['name'])
-            logging.info('\n%s schemas ready to be ingested...', len(topic['schemas']))
-            assembled_schemas = self.__make_entry_for_schemas(topic['schemas'], topic['name'])
+            logging.info('\n--> Topic: %s', topic[1]['name'])
+            logging.info('\n%s schemas ready to be ingested...', len(topic[1]['schemas']))
+            assembled_schemas = self.__make_entry_for_schemas(topic[1]['schemas'], topic[1]['name'])
 
             assembled_entries.append((assembled_topic, assembled_schemas))
         return assembled_entries
@@ -52,12 +52,13 @@ class AssembledEntryFactory:
 
         return prepare.AssembledEntryData(entry_id, entry)
 
-    def __make_entry_for_schemas(self, tables_dict, database_name):
+    def __make_entry_for_schemas(self, schemas_dict, topic_name):
         entries = []
-        for table_dict in tables_dict:
-            entry_id, entry = self. \
-                __datacatalog_entry_factory.make_entry_for_table(table_dict,
-                                                                 database_name)
+        for schema in schemas_dict:
+            if schemas_dict[schema]:
+                entry_id, entry = self. \
+                    __datacatalog_entry_factory.make_entry_for_schema(schema, schemas_dict[schema],
+                                                                     topic_name)
 
-            entries.append(prepare.AssembledEntryData(entry_id, entry))
+                entries.append(prepare.AssembledEntryData(entry_id, entry))
         return entries

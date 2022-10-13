@@ -16,7 +16,6 @@
 
 from google.cloud import datacatalog
 from google.datacatalog_connectors.commons.prepare import base_entry_factory
-from google.protobuf import timestamp_pb2
 
 
 class DataCatalogEntryFactory(base_entry_factory.BaseEntryFactory):
@@ -32,7 +31,7 @@ class DataCatalogEntryFactory(base_entry_factory.BaseEntryFactory):
 
     def make_entries_for_topic(self, topic_metadata):
         entry_id = self._format_id_with_hashing(
-            topic_metadata.name.lower(),
+            topic_metadata[1]["name"].lower(),
             regex_pattern=self.__ENTRY_ID_INVALID_CHARS_REGEX_PATTERN)
 
         entry = datacatalog.Entry()
@@ -40,7 +39,8 @@ class DataCatalogEntryFactory(base_entry_factory.BaseEntryFactory):
         entry.user_specified_type = 'topic'
         entry.user_specified_system = 'kafka'
 
-        entry.display_name = self._format_display_name(topic_metadata['name'])
+        entry.display_name = self._format_display_name(
+            topic_metadata[1]['name'])
 
         entry.name = datacatalog.DataCatalogClient.entry_path(
             self.__project_id, self.__location_id, self.__entry_group_id,
@@ -49,91 +49,61 @@ class DataCatalogEntryFactory(base_entry_factory.BaseEntryFactory):
         entry.linked_resource = \
             self._format_linked_resource('//{}//{}'.format(
                 self.__bootstrap_servers,
-                topic_metadata['name']
+                topic_metadata[1]['name']
             ))
 
         return entry_id, entry
 
-    def make_entry_for_table(self, table_metadata, database_name):
-        entry_id = self.__make_entry_id_for_table(database_name,
-                                                  table_metadata)
+    def make_entry_for_schema(self, schema, schema_metadata, topic_name):
+        entry_id = self.__make_entry_id_for_schema(schema, topic_name,
+                                                   schema_metadata)
 
         entry = datacatalog.Entry()
 
-        entry.user_specified_type = 'table'
-        entry.user_specified_system = 'hive'
+        entry.user_specified_type = 'schema'
+        entry.user_specified_system = 'kafka'
 
-        entry.display_name = self._format_display_name(table_metadata.name)
+        entry.display_name = self._format_display_name(schema)
 
         entry.name = datacatalog.DataCatalogClient.entry_path(
             self.__project_id, self.__location_id, self.__entry_group_id,
             entry_id)
-
-        table_storage = table_metadata.table_storages[0]
-
-        entry.linked_resource = \
-            self._format_linked_resource(
-                '//{}//{}'.format(self.__metadata_host_server,
-                                  table_storage.location))
-
-        created_timestamp = timestamp_pb2.Timestamp()
-        created_timestamp.FromSeconds(table_metadata.create_time)
-
-        entry.source_system_timestamps.create_time = created_timestamp
-
-        update_time_seconds = \
-            DataCatalogEntryFactory. \
-                __extract_update_time_from_table_metadata(table_metadata)
-        if update_time_seconds is not None:
-            updated_timestamp = timestamp_pb2.Timestamp()
-            updated_timestamp.FromSeconds(update_time_seconds)
-
-            entry.source_system_timestamps.update_time = updated_timestamp
-        else:
-            entry.source_system_timestamps.update_time = created_timestamp
-
-        columns = []
-        for column in table_storage.columns:
-            columns.append(
-                datacatalog.ColumnSchema(
-                    column=column.name,
+        entry.user_specified_type = schema_metadata["type"]
+        fields = []
+        for field in schema_metadata['schema']['fields']:
+            if not isinstance(field['type'], dict):
+                name = field['name']
+                type = field['type']
+                doc = field['doc'] if 'doc' in field else None
+                col = datacatalog.ColumnSchema(
+                    column=name,
                     type=DataCatalogEntryFactory.__format_entry_column_type(
-                        column.type),
-                    description=column.comment))
-        entry.schema.columns.extend(columns)
+                        type),
+                    description=doc)
+                fields.append(col)
+        entry.schema.columns.extend(fields)
 
         return entry_id, entry
 
-    def __make_entry_id_for_table(self, database_name, table_metadata):
-        # We normalize and hash first the database_name.
-        normalized_database_name = self._format_id_with_hashing(
-            database_name.lower(),
+    def __make_entry_id_for_schema(self, schema, topic_name, schema_metadata):
+        # We normalize and hash first the topic_name.
+        normalized_topic_name = self._format_id_with_hashing(
+            topic_name.lower(),
             regex_pattern=self.__ENTRY_ID_INVALID_CHARS_REGEX_PATTERN)
 
         # Next we do the same for the table name.
-        normalized_table_name = self._format_id_with_hashing(
-            table_metadata.name.lower(),
+        normalized_schema_name = self._format_id_with_hashing(
+            schema.lower(),
             regex_pattern=self.__ENTRY_ID_INVALID_CHARS_REGEX_PATTERN)
 
-        entry_id = '{}__{}'.format(normalized_database_name,
-                                   normalized_table_name)
+        entry_id = '{}__{}'.format(normalized_topic_name,
+                                   normalized_schema_name)
 
         # Then we hash the combined result again to make sure it
         # does not hit the 64 chars limit.
         return self._format_id_with_hashing(
             entry_id,
             regex_pattern=self.__ENTRY_ID_INVALID_CHARS_REGEX_PATTERN)
-
-    @staticmethod
-    def __extract_update_time_from_table_metadata(table_metadata):
-        try:
-            param = next([
-                             param for param in table_metadata.table_params
-                             if param.param_key == 'last_modified_time'
-                         ].__iter__())
-            return int(param.param_value)
-        except StopIteration:
-            return None
 
     @staticmethod
     def __format_entry_column_type(source_name):
