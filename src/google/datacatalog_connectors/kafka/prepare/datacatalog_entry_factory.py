@@ -73,7 +73,7 @@ class DataCatalogEntryFactory(base_entry_factory.BaseEntryFactory):
         fields = []
         if 'fields' in schema_metadata['schema']:
             for field in schema_metadata['schema']['fields']:
-                if not isinstance(field['type'], dict):
+                if isinstance(field['type'], str):
                     name = field['name']
                     type = field['type']
                     doc = field['doc'] if 'doc' in field else None
