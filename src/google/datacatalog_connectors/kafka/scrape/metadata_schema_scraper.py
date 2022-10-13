@@ -36,7 +36,8 @@ class MetadataSchemaScraper:
                 latest_version = self.__client.get_latest_version(subject)
                 result[subject] = {
                     'type': latest_version.schema.schema_type,
-                    'schema': json.loads(latest_version.schema.schema_str),
+                    'schema': json.loads(
+                        latest_version.schema.schema_str) if latest_version.schema.schema_type == 'AVRO' else None,
                     'references': latest_version.schema.references
                 }
             except SchemaRegistryError as e:

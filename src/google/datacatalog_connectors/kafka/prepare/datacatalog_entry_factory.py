@@ -68,20 +68,24 @@ class DataCatalogEntryFactory(base_entry_factory.BaseEntryFactory):
         entry.name = datacatalog.DataCatalogClient.entry_path(
             self.__project_id, self.__location_id, self.__entry_group_id,
             entry_id)
-        entry.description = f'Format: {schema_metadata["type"]}\n{schema_metadata["doc"] if "doc" in schema_metadata else ""}'
+        description = f'Format: {schema_metadata["type"]}\n{schema_metadata["doc"] if "doc" in schema_metadata else ""}'
+        if schema_metadata["type"] != 'AVRO':
+            description += '\nFormat not supported'
+
+        entry.description = description
 
         fields = []
-        if 'fields' in schema_metadata['schema']:
+        if schema_metadata['schema'] and 'fields' in schema_metadata['schema']:
             for field in schema_metadata['schema']['fields']:
-                if isinstance(field['type'], str):
-                    name = field['name']
-                    type = field['type']
-                    doc = field['doc'] if 'doc' in field else None
-                    col = datacatalog.ColumnSchema(
-                        column=name,
-                        type=type,
-                        description=doc)
-                    fields.append(col)
+                name = field['name']
+                type, subcolumns = self.__resolve_field_type(field['type'])
+                doc = field['doc'] if 'doc' in field else None
+                col = datacatalog.ColumnSchema(
+                    column=name,
+                    type=type,
+                    description=doc,
+                    subcolumns=subcolumns)
+                fields.append(col)
         entry.schema.columns.extend(fields)
 
         return entry_id, entry
@@ -112,3 +116,11 @@ class DataCatalogEntryFactory(base_entry_factory.BaseEntryFactory):
         formatted_name = formatted_name.replace(':', '_')
         formatted_name = formatted_name.replace('/', '_')
         return formatted_name
+
+    def __resolve_field_type(self, field_type):
+        type, subcolumns = None, None
+        if isinstance(field_type, str):
+            type = field_type
+        else:
+            type = 'COMPLEX_TYPE_NOT_SUPPORTED'
+        return type, subcolumns
