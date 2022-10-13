@@ -73,24 +73,15 @@ class DataCatalogEntryFactory(base_entry_factory.BaseEntryFactory):
         fields = []
         if 'fields' in schema_metadata['schema']:
             for field in schema_metadata['schema']['fields']:
-                name = field['name']
-                type = None
-                sub_columns = None
-                if isinstance(field['type'], dict):
-                    type = 'custom'
-                    sub_columns = field['type'].items()
-                elif isinstance(field['type'], dict):
-                    type = 'custom'
-                    sub_columns = field['type']
-                else:
+                if not isinstance(field['type'], dict):
+                    name = field['name']
                     type = field['type']
-                doc = field['doc'] if 'doc' in field else None
-                col = datacatalog.ColumnSchema(
-                    column=name,
-                    type=type,
-                    description=doc,
-                    subcolumns=sub_columns)
-                fields.append(col)
+                    doc = field['doc'] if 'doc' in field else None
+                    col = datacatalog.ColumnSchema(
+                        column=name,
+                        type=type,
+                        description=doc)
+                    fields.append(col)
         entry.schema.columns.extend(fields)
 
         return entry_id, entry
