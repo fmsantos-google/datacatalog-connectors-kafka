@@ -68,19 +68,21 @@ class DataCatalogEntryFactory(base_entry_factory.BaseEntryFactory):
         entry.name = datacatalog.DataCatalogClient.entry_path(
             self.__project_id, self.__location_id, self.__entry_group_id,
             entry_id)
-        entry.user_specified_type = schema_metadata["type"]
+        entry.description = f'Format: {schema_metadata["type"]}\n{schema_metadata["doc"] if "doc" in schema_metadata else ""}'
+
         fields = []
-        for field in schema_metadata['schema']['fields']:
-            if not isinstance(field['type'], dict):
-                name = field['name']
-                type = field['type']
-                doc = field['doc'] if 'doc' in field else None
-                col = datacatalog.ColumnSchema(
-                    column=name,
-                    type=DataCatalogEntryFactory.__format_entry_column_type(
-                        type),
-                    description=doc)
-                fields.append(col)
+        if 'fields' in schema_metadata['schema']:
+            for field in schema_metadata['schema']['fields']:
+                if not isinstance(field['type'], dict):
+                    name = field['name']
+                    type = field['type']
+                    doc = field['doc'] if 'doc' in field else None
+                    col = datacatalog.ColumnSchema(
+                        column=name,
+                        type=DataCatalogEntryFactory.__format_entry_column_type(
+                            type),
+                        description=doc)
+                    fields.append(col)
         entry.schema.columns.extend(fields)
 
         return entry_id, entry

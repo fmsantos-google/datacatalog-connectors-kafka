@@ -15,7 +15,6 @@
 # limitations under the License.
 
 import argparse
-
 import logging
 import os
 import sys
@@ -45,6 +44,7 @@ class KafkaSchemaRegistry2DatacatalogCli:
             sr_endpoint=args.schema_registry_endpoint,
             sr_api_key=args.schema_registry_api_key,
             sr_api_secret=args.schema_registry_api_secret,
+            cleanup=args.cleanup,
             enable_monitoring=args.enable_monitoring).run()
 
     @staticmethod
@@ -79,6 +79,10 @@ class KafkaSchemaRegistry2DatacatalogCli:
         parser.add_argument('--service-account-path',
                             help='Local Service Account path '
                                  '(Can be suplied as GOOGLE_APPLICATION_CREDENTIALS env var)')
+        parser.add_argument('--cleanup',
+                            action='store_true',
+                            default=False,
+                            help='If it should cleanup old entries')
         parser.add_argument('--enable-monitoring',
                             help='Enables monitoring metrics on the connector')
         return parser.parse_args(argv)

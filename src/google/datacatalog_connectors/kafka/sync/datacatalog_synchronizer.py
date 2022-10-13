@@ -35,7 +35,7 @@ class DataCatalogSynchronizer:
 
     def __init__(self, project_id, location_id, bootstrap_servers,
         kafka_api_key=None, kafka_api_secret=None, sr_endpoint=None,
-        sr_api_key=None, sr_api_secret=None, enable_monitoring=None):
+        sr_api_key=None, sr_api_secret=None, cleanup = False, enable_monitoring=None):
         self.__entry_group_id = 'kafka'
         self.__project_id = project_id
         self.__location_id = location_id
@@ -51,6 +51,7 @@ class DataCatalogSynchronizer:
             self.__task_id)
         self.__adm_client = None
         self.__sr_client = None
+        self.cleanup = cleanup
 
     def __get_admin_client(self):
         if not self.__adm_client:
@@ -118,8 +119,18 @@ class DataCatalogSynchronizer:
 
         logging.info('\n==============Ingest metadata===============')
 
-        # cleaner = datacatalog_metadata_cleaner.DataCatalogMetadataCleaner(
-        #     self.__project_id, self.__location_id, self.__entry_group_id)
+        if self.cleanup:
+            cleaner = datacatalog_metadata_cleaner.DataCatalogMetadataCleaner(
+                self.__project_id, self.__location_id, self.__entry_group_id)
+            assembled_entries_data = []
+            for topic_entry, schema_related_entries in prepared_entries:
+                assembled_entries_data.extend([topic_entry, *schema_related_entries])
+
+            cleaner.delete_obsolete_metadata(
+                assembled_entries_data,
+                'system={}'.format(self.__entry_group_id))
+
+            del assembled_entries_data
 
         self.__ingest_created_or_updated(prepared_entries)
 
