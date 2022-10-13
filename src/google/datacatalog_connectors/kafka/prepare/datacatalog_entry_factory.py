@@ -73,16 +73,24 @@ class DataCatalogEntryFactory(base_entry_factory.BaseEntryFactory):
         fields = []
         if 'fields' in schema_metadata['schema']:
             for field in schema_metadata['schema']['fields']:
-                if not isinstance(field['type'], dict):
-                    name = field['name']
+                name = field['name']
+                type = None
+                sub_columns = None
+                if isinstance(field['type'], dict):
+                    type = 'custom'
+                    sub_columns = field['type'].items()
+                elif isinstance(field['type'], dict):
+                    type = 'custom'
+                    sub_columns = field['type']
+                else:
                     type = field['type']
-                    doc = field['doc'] if 'doc' in field else None
-                    col = datacatalog.ColumnSchema(
-                        column=name,
-                        type=DataCatalogEntryFactory.__format_entry_column_type(
-                            type),
-                        description=doc)
-                    fields.append(col)
+                doc = field['doc'] if 'doc' in field else None
+                col = datacatalog.ColumnSchema(
+                    column=name,
+                    type=type,
+                    description=doc,
+                    subcolumns=sub_columns)
+                fields.append(col)
         entry.schema.columns.extend(fields)
 
         return entry_id, entry
@@ -108,7 +116,7 @@ class DataCatalogEntryFactory(base_entry_factory.BaseEntryFactory):
             regex_pattern=self.__ENTRY_ID_INVALID_CHARS_REGEX_PATTERN)
 
     @staticmethod
-    def __format_entry_column_type(source_name):
+    def __format_entry_field_type(source_name):
         formatted_name = source_name.replace('&', '_')
         formatted_name = formatted_name.replace(':', '_')
         formatted_name = formatted_name.replace('/', '_')
